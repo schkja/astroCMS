@@ -1,0 +1,60 @@
+---
+import Layout from '../layouts/Layout.astro';
+import fs from 'fs/promises';
+import path from 'path';
+
+const CONTENT_DIR = path.join(process.cwd(), 'src/content/pages');
+
+// Simple markdown to HTML converter
+function markdownToHtml(markdown) {
+  return markdown
+    .replace(/^---[\s\S]*?---\n/, '') // Remove frontmatter
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^\- (.*$)/gim, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(.*)$/gm, function(match) {
+      if (match.trim() && !match.startsWith('<')) {
+        return '<p>' + match + '</p>';
+      }
+      return match;
+    })
+    .replace(/<p><\/p>/g, '')
+    .replace(/<p>(<[^>]+>)/g, '$1')
+    .replace(/(<\/[^>]+>)<\/p>/g, '$1');
+}
+
+// Load page content server-side
+let pageContent = '<h1>Welcome to My Website</h1><p>This is your homepage. Click "Edit Page" to modify this content!</p><p>Use the CMS button to manage all your pages and navigation.</p>';
+let pageTitle = 'Home';
+
+try {
+  const filePath = path.join(CONTENT_DIR, 'index.md');
+  const content = await fs.readFile(filePath, 'utf-8');
+  
+  // Extract frontmatter
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
+  let rawContent = content;
+  
+  if (frontmatterMatch) {
+    const frontmatter = frontmatterMatch[1];
+    const titleMatch = frontmatter.match(/^title:\s*(.+)$/m);
+    if (titleMatch) {
+      pageTitle = titleMatch[1].trim();
+    }
+    rawContent = content.replace(frontmatterMatch[0], '');
+  }
+  
+  pageContent = markdownToHtml(rawContent);
+} catch (error) {
+  // Use default content if file doesn't exist
+}
+---
+
+<Layout title={pageTitle} editSlug="index">
+  <div set:html={pageContent}></div>
+</Layout>

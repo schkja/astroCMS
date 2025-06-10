@@ -1,0 +1,120 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import fs from 'fs/promises';
+import path from 'path';
+
+const { slug } = Astro.params;
+const CONTENT_DIR = path.join(process.cwd(), 'src/content/pages');
+
+// Load existing page data server-side
+let pageData = null;
+let pageExists = false;
+
+try {
+  const filePath = path.join(CONTENT_DIR, `${slug}.md`);
+  const content = await fs.readFile(filePath, 'utf-8');
+  
+  // Extract frontmatter
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
+  let title = slug;
+  let rawContent = content;
+  
+  if (frontmatterMatch) {
+    const frontmatter = frontmatterMatch[1];
+    const titleMatch = frontmatter.match(/^title:\s*(.+)$/m);
+    if (titleMatch) {
+      title = titleMatch[1].trim();
+    }
+    rawContent = content.replace(frontmatterMatch[0], '');
+  }
+  
+  pageData = {
+    title,
+    slug,
+    content: rawContent
+  };
+  pageExists = true;
+} catch (error) {
+  // Page doesn't exist
+}
+---
+
+<Layout title={`Edit Page - ${slug}`} showEditButton={false}>
+  <div class="cms-container">
+    <div class="cms-header">
+      <h1>Edit Page</h1>
+      <div style="display: flex; gap: 1rem;">
+        <a href={`/${slug}`} class="btn btn-secondary">View Page</a>
+        <a href="/admin" class="btn btn-secondary">← Back to Dashboard</a>
+      </div>
+    </div>
+    
+    {pageExists ? (
+      <form id="edit-form" class="cms-card">
+        <div class="form-group">
+          <label for="title">Page Title</label>
+          <input type="text" id="title" name="title" value={pageData.title} required />
+        </div>
+        
+        <div class="form-group">
+          <label for="slug">URL Slug</label>
+          <input type="text" id="slug" name="slug" value={pageData.slug} required readonly />
+          <small style="color: #666;">URL: /{pageData.slug}</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="content">Content (Markdown)</label>
+          <textarea id="content" name="content">{pageData.content}</textarea>
+        </div>
+        
+        <div class="cms-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <a href="/admin" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+    ) : (
+      <div class="cms-card">
+        <h2>Page Not Found</h2>
+        <p>The page "{slug}" doesn't exist.</p>
+        <a href={`/admin/new?slug=${slug}`} class="btn btn-primary">Create This Page</a>
+      </div>
+    )}
+  </div>
+  
+  <script define:vars={{ slug }}>
+    // Handle form submission
+    const form = document.getElementById('edit-form');
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+          title: formData.get('title'),
+          slug: formData.get('slug'),
+          content: formData.get('content')
+        };
+        
+        try {
+          const response = await fetch('/api/pages', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          
+          if (response.ok) {
+            alert('Page saved successfully!');
+            // Refresh the page to show updated content
+            window.location.reload();
+          } else {
+            const error = await response.json();
+            alert(`Failed to save page: ${error.message}`);
+          }
+        } catch (error) {
+          console.error('Failed to save page:', error);
+          alert('Failed to save page');
+        }
+      });
+    }
+  </script>
+</Layout>

@@ -1,0 +1,192 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="CMS Dashboard" showEditButton={false}>
+  <div class="cms-container">
+    <div class="cms-header">
+      <h1>Content Management System</h1>
+      <p>Manage your website pages and navigation</p>
+    </div>
+    
+    <div class="cms-grid">
+      <!-- Pages Section -->
+      <div class="cms-card">
+        <h2>Pages</h2>
+        <p>Manage your website pages</p>
+        <div class="cms-actions">
+          <a href="/admin/new" class="btn btn-primary">Create New Page</a>
+        </div>
+        <div id="pages-list" style="margin-top: 1rem;">
+          <p>Loading pages...</p>
+        </div>
+      </div>
+      
+      <!-- Navigation Section -->
+      <div class="cms-card">
+        <h2>Navigation</h2>
+        <p>Manage your website navigation menu</p>
+        <div id="navigation-manager">
+          <p>Loading navigation...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Load pages
+    async function loadPages() {
+      try {
+        const response = await fetch('/api/pages');
+        const pages = await response.json();
+        const pagesList = document.getElementById('pages-list');
+        
+        if (pages.length === 0) {
+          pagesList.innerHTML = '<p>No pages found. Create your first page!</p>';
+          return;
+        }
+        
+        pagesList.innerHTML = pages.map(page => `
+          <div class="nav-item">
+            <div>
+              <strong>${page.title}</strong>
+              <div style="font-size: 0.9rem; color: #666;">/${page.slug}</div>
+            </div>
+            <div class="nav-controls">
+              <a href="/admin/edit/${page.slug}" class="btn btn-primary">Edit</a>
+              <button onclick="deletePage('${page.slug}')" class="btn btn-danger">Delete</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Failed to load pages:', error);
+        document.getElementById('pages-list').innerHTML = '<p>Error loading pages.</p>';
+      }
+    }
+    
+    // Load navigation
+    async function loadNavigationManager() {
+      try {
+        const response = await fetch('/api/navigation');
+        const navigation = await response.json();
+        const navManager = document.getElementById('navigation-manager');
+        
+        navManager.innerHTML = `
+          <div id="nav-items">
+            ${navigation.map((item, index) => `
+              <div class="nav-item" data-index="${index}">
+                <div>
+                  <strong>${item.title}</strong>
+                  <div style="font-size: 0.9rem; color: #666;">${item.url}</div>
+                </div>
+                <div class="nav-controls">
+                  <button onclick="moveNavItem(${index}, -1)" class="btn btn-secondary">↑</button>
+                  <button onclick="moveNavItem(${index}, 1)" class="btn btn-secondary">↓</button>
+                  <button onclick="removeNavItem(${index})" class="btn btn-danger">Remove</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+            <h4>Add Navigation Item</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; margin-top: 0.5rem;">
+              <input type="text" id="nav-title" placeholder="Title" />
+              <input type="text" id="nav-url" placeholder="URL (e.g., /about)" />
+              <button onclick="addNavItem()" class="btn btn-primary">Add</button>
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        console.error('Failed to load navigation:', error);
+      }
+    }
+    
+    // Delete page
+    async function deletePage(slug) {
+      if (!confirm(`Are you sure you want to delete the page "${slug}"?`)) return;
+      
+      try {
+        const response = await fetch('/api/pages', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug })
+        });
+        
+        if (response.ok) {
+          loadPages();
+        } else {
+          alert('Failed to delete page');
+        }
+      } catch (error) {
+        console.error('Failed to delete page:', error);
+        alert('Failed to delete page');
+      }
+    }
+    
+    // Navigation management functions
+    let currentNavigation = [];
+    
+    async function loadCurrentNavigation() {
+      const response = await fetch('/api/navigation');
+      currentNavigation = await response.json();
+    }
+    
+    async function saveNavigation() {
+      try {
+        await fetch('/api/navigation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentNavigation)
+        });
+        loadNavigationManager();
+      } catch (error) {
+        console.error('Failed to save navigation:', error);
+      }
+    }
+    
+    async function addNavItem() {
+      const title = document.getElementById('nav-title').value.trim();
+      const url = document.getElementById('nav-url').value.trim();
+      
+      if (!title || !url) {
+        alert('Please enter both title and URL');
+        return;
+      }
+      
+      await loadCurrentNavigation();
+      currentNavigation.push({ title, url });
+      await saveNavigation();
+      
+      document.getElementById('nav-title').value = '';
+      document.getElementById('nav-url').value = '';
+    }
+    
+    async function removeNavItem(index) {
+      await loadCurrentNavigation();
+      currentNavigation.splice(index, 1);
+      await saveNavigation();
+    }
+    
+    async function moveNavItem(index, direction) {
+      await loadCurrentNavigation();
+      const newIndex = index + direction;
+      
+      if (newIndex < 0 || newIndex >= currentNavigation.length) return;
+      
+      [currentNavigation[index], currentNavigation[newIndex]] = 
+      [currentNavigation[newIndex], currentNavigation[index]];
+      
+      await saveNavigation();
+    }
+    
+    // Make functions global
+    window.deletePage = deletePage;
+    window.addNavItem = addNavItem;
+    window.removeNavItem = removeNavItem;
+    window.moveNavItem = moveNavItem;
+    
+    // Initialize
+    loadPages();
+    loadNavigationManager();
+  </script>
+</Layout>

@@ -1,0 +1,125 @@
+---
+import fs from 'fs/promises';
+import path from 'path';
+
+export interface Props {
+  title: string;
+  showEditButton?: boolean;
+  editSlug?: string;
+}
+
+const { title, showEditButton = true, editSlug } = Astro.props;
+
+// Load navigation server-side
+const CONFIG_DIR = path.join(process.cwd(), 'src/content/config');
+const NAV_FILE = path.join(CONFIG_DIR, 'navigation.json');
+const DEFAULT_NAVIGATION = [{ title: 'Home', url: '/' }];
+
+let navigation = DEFAULT_NAVIGATION;
+try {
+  const content = await fs.readFile(NAV_FILE, 'utf-8');
+  navigation = JSON.parse(content);
+} catch (error) {
+  // Use default navigation if file doesn't exist
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+    
+    /* Header */
+    header { background: #f8f9fa; border-bottom: 1px solid #ddd; padding: 1rem 0; }
+    .header-content { display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 1.5rem; font-weight: bold; text-decoration: none; color: #333; }
+    
+    /* Navigation */
+    nav ul { list-style: none; display: flex; gap: 2rem; }
+    nav a { text-decoration: none; color: #666; padding: 0.5rem 1rem; border-radius: 4px; }
+    nav a:hover { background: #e9ecef; color: #333; }
+    
+    /* Edit Button */
+    .edit-btn { 
+      background: #007bff; color: white; padding: 0.5rem 1rem; 
+      border-radius: 4px; text-decoration: none; font-size: 0.9rem;
+    }
+    .edit-btn:hover { background: #0056b3; }
+    
+    /* Main Content */
+    main { padding: 2rem 0; min-height: calc(100vh - 120px); }
+    
+    /* CMS Styles */
+    .cms-container { max-width: 800px; margin: 0 auto; }
+    .cms-header { margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #eee; }
+    .cms-grid { display: grid; gap: 1rem; }
+    .cms-card { 
+      border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; 
+      background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .cms-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+    .btn { 
+      padding: 0.5rem 1rem; border: none; border-radius: 4px; 
+      cursor: pointer; text-decoration: none; display: inline-block; font-size: 0.9rem;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn:hover { opacity: 0.9; }
+    
+    /* Forms */
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+    .form-group input, .form-group textarea { 
+      width: 100%; padding: 0.75rem; border: 1px solid #ddd; 
+      border-radius: 4px; font-size: 1rem;
+    }
+    .form-group textarea { min-height: 300px; font-family: 'Courier New', monospace; }
+    
+    /* Navigation Manager */
+    .nav-item { 
+      display: flex; justify-content: space-between; align-items: center; 
+      padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem;
+    }
+    .nav-controls { display: flex; gap: 0.5rem; }
+    .nav-controls button { 
+      padding: 0.25rem 0.5rem; border: none; border-radius: 3px; 
+      cursor: pointer; font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <a href="/" class="logo">My Website</a>
+        <div style="display: flex; align-items: center; gap: 2rem;">
+          <nav>
+            <ul>
+              {navigation.map(item => (
+                <li><a href={item.url}>{item.title}</a></li>
+              ))}
+            </ul>
+          </nav>
+          {showEditButton && editSlug && (
+            <a href={`/admin/edit/${editSlug}`} class="edit-btn">Edit Page</a>
+          )}
+          <a href="/admin" class="edit-btn">CMS</a>
+        </div>
+      </div>
+    </div>
+  </header>
+  
+  <main>
+    <div class="container">
+      <slot />
+    </div>
+  </main>
+</body>
+</html>
